@@ -1,16 +1,36 @@
 import hashlib
 import xml.etree.ElementTree as ET
-
+import itchatmp
 from flask import Flask, request
-
 import time
+from tornado import gen
+import logging
+import pymongo
+
+itchatmp.set_logging(showOnCmd=True, loggingFile=None, loggingLevel=logging.INFO)
+itchatmp.update_config(itchatmp.WechatConfig(
+    token='links',
+    appId='wxff879408144bcc84',
+    appSecret='a54fee27d6dc7ef7203a1bb805ef9631'
+))
+
 
 app = Flask(__name__)
 app.debug = True
 
 
+@itchatmp.access_token
+def get_access_token(accessToken=None):
+    return accessToken
+
+
+@app.route('/back')
+def back():
+    return 'none'
+
+
 @app.route('/', methods=['GET', 'POST'])
-def haha():
+def it_index():
     if request.method == 'GET':
         token = 'links'  # 微信配置所需的token
         signature = request.args.get('signature', '')
@@ -30,7 +50,11 @@ def haha():
         createTime = xml.find("CreateTime")
         if msgType == "text":
             content = xml.find('Content').text
-            return reply_text(fromUser, toUser, reply(fromUser, content))
+            if content == "弹幕发送":
+                return reply(fromUser, toUser, "弹幕姬发动中")
+        elif msgType == "image":
+            image_url = xml.find('MediaId').text
+            print(image_url)
         else:
             return reply_text(fromUser, toUser, "我只懂文字")
 
@@ -66,4 +90,11 @@ def reply(openid, msg):
 
 
 if __name__ == '__main__':
-    app.run()
+    r = itchatmp.messages.upload(itchatmp.content.IMAGE, 'image.jpg')
+    if r:
+        print(r['media_id'])
+    else:
+        print('Failed: \n%s' % r)
+    r = get_access_token()
+    print(r)
+    app.run(host="0.0.0.0", port=80)
